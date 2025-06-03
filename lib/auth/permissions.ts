@@ -84,3 +84,7 @@ export function hasPermission(userRole: UserRole, permission: keyof Permission):
   const permissions = getUserPermissions(userRole)
   return permissions[permission]
 }
+
+export function checkPermission(userRole: UserRole, permission: keyof Permission): boolean {
+  return hasPermission(userRole, permission)
+}

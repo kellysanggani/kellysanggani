@@ -20,7 +20,7 @@ interface StockUpdateFormProps {
   currentStock: number
 }
 
-export function StockUpdateForm({ outlet, productId, currentStock }: StockUpdateFormProps) {
+function StockUpdateForm({ outlet, productId, currentStock }: StockUpdateFormProps) {
   const { toast } = useToast()
   const [stockLevel, setStockLevel] = useState(currentStock)
 
@@ -95,3 +95,5 @@ function StockUpdateButton() {
 
   return <Button disabled={pending}>{pending ? "Updating..." : "Update Stock"}</Button>
 }
+
+export default StockUpdateForm
