@@ -157,20 +157,17 @@ export default function OutletViewDetails({
   useEffect(() => {
     const fetchProductDetails = async () => {
       try {
-        const productIds = currentStockLevels.map((stock) => stock.product_id)
-        const uniqueProductIds = [...new Set(productIds)]
+        const response = await fetch("/api/products")
+        if (response.ok) {
+          const products = await response.json()
+          const productDetailsMap: Record<number, Product> = {}
 
-        const productDetailsMap: Record<number, Product> = {}
+          products.forEach((product: Product) => {
+            productDetailsMap[product.id] = product
+          })
 
-        for (const productId of uniqueProductIds) {
-          const response = await fetch(`/api/products/${productId}`)
-          if (response.ok) {
-            const product = await response.json()
-            productDetailsMap[productId] = product
-          }
+          setProductDetails(productDetailsMap)
         }
-
-        setProductDetails(productDetailsMap)
       } catch (error) {
         console.error("Error fetching product details:", error)
       }

@@ -1,6 +1,5 @@
 import type { Metadata } from "next"
 import SettingsHeader from "@/components/settings/settings-header"
-import AccessCodeSettings from "@/components/settings/access-code-settings"
 import UserManagement from "@/components/settings/user-management"
 import UserRolesManagement from "@/components/settings/user-roles-management"
 import DatabaseManagement from "@/components/settings/database-management"
@@ -18,10 +17,7 @@ export default function SettingsPage() {
       <QuickNavigation />
       <div className="space-y-6">
         <UserRolesManagement />
-        <div className="grid gap-6 md:grid-cols-2">
-          <AccessCodeSettings />
-          <UserManagement />
-        </div>
+        <UserManagement />
         <DatabaseManagement />
       </div>
     </div>
