@@ -1,3 +1,4 @@
+
 // Database schema and connection utilities
 export interface Outlet {
   id: number
