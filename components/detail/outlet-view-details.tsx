@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Package, Calendar, Edit, Save, X, History, User, Clock, RefreshCw, ArrowLeft } from "lucide-react"
@@ -378,66 +377,6 @@ export default function OutletViewDetails({
                 </Button>
               </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Outlet Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg sm:text-xl">Outlet Information</CardTitle>
-          <CardDescription>Basic information about this outlet</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-muted-foreground">Category</span>
-              <div>
-                <Badge variant={getCategoryName(outlet.category_id) === "Premium" ? "default" : "secondary"}>
-                  {getCategoryName(outlet.category_id)}
-                </Badge>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-muted-foreground">Region</span>
-              <p className="text-sm">{getRegionName(outlet.region_id)}</p>
-            </div>
-            {outlet.store_name && (
-              <div className="space-y-2">
-                <span className="text-sm font-medium text-muted-foreground">Store Name</span>
-                <p className="text-sm break-words">{outlet.store_name}</p>
-              </div>
-            )}
-            {outlet.address && (
-              <div className="space-y-2 sm:col-span-2">
-                <span className="text-sm font-medium text-muted-foreground">Address</span>
-                <p className="text-sm break-words">{outlet.address}</p>
-              </div>
-            )}
-            {outlet.phone && (
-              <div className="space-y-2">
-                <span className="text-sm font-medium text-muted-foreground">Phone</span>
-                <p className="text-sm break-words">{outlet.phone}</p>
-              </div>
-            )}
-            {outlet.email && (
-              <div className="space-y-2">
-                <span className="text-sm font-medium text-muted-foreground">Email</span>
-                <p className="text-sm break-words">{outlet.email}</p>
-              </div>
-            )}
-            {outlet.pic_name && (
-              <div className="space-y-2">
-                <span className="text-sm font-medium text-muted-foreground">PIC Name</span>
-                <p className="text-sm break-words">{outlet.pic_name}</p>
-              </div>
-            )}
-            {outlet.pic_contact && (
-              <div className="space-y-2">
-                <span className="text-sm font-medium text-muted-foreground">PIC Contact</span>
-                <p className="text-sm break-words">{outlet.pic_contact}</p>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>
