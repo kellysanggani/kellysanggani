@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Package, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -108,7 +108,6 @@ export default function ProductInfoCards() {
                   <Package className="h-4 w-4" />
                   {product.name}
                 </CardTitle>
-                <CardDescription>Supplier: {product.supplier}</CardDescription>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
