@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { DatabaseService } from "@/lib/db/database-service"
 import { validateStringArray } from "@/lib/validation/schemas"
 
@@ -50,11 +50,12 @@ export async function PUT(request: NextRequest) {
 
     const validatedRegions = validation.data!
 
-    // For now, return success with validated data
-    // In real implementation, you'd update the database
+    // Update regions in database
+    await DatabaseService.updateRegions(validatedRegions)
+
     return NextResponse.json({
       success: true,
-      message: `Successfully validated ${validatedRegions.length} regions`,
+      message: `Successfully updated ${validatedRegions.length} regions`,
       data: validatedRegions,
       timestamp: new Date().toISOString(),
     })

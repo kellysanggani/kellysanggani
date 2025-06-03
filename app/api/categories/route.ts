@@ -50,11 +50,12 @@ export async function PUT(request: NextRequest) {
 
     const validatedCategories = validation.data!
 
-    // For now, return success with validated data
-    // In real implementation, you'd update the database
+    // Update categories in database
+    await DatabaseService.updateCategories(validatedCategories)
+
     return NextResponse.json({
       success: true,
-      message: `Successfully validated ${validatedCategories.length} categories`,
+      message: `Successfully updated ${validatedCategories.length} categories`,
       data: validatedCategories,
       timestamp: new Date().toISOString(),
     })

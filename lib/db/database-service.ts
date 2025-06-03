@@ -126,6 +126,34 @@ export class DatabaseService {
     return result.rows.length > 0 ? result.rows[0] : undefined
   }
 
+  static async createOutlet(data: Partial<Outlet>): Promise<Outlet | null> {
+    await DatabaseService.ensureInitialized()
+
+    try {
+      console.log("Creating outlet with data:", data)
+
+      const result = await sql<Outlet>`
+        INSERT INTO outlets (
+          name, category_id, region_id, sales_person, address, phone, email, 
+          store_name, pic_name, pic_contact, created_at, updated_at
+        )
+        VALUES (
+          ${data.name}, ${data.category_id || null}, ${data.region_id || null}, 
+          ${data.sales_person || null}, ${data.address || null}, ${data.phone || null}, 
+          ${data.email || null}, ${data.store_name || null}, ${data.pic_name || null}, 
+          ${data.pic_contact || null}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        )
+        RETURNING *
+      `
+
+      console.log("Successfully created outlet")
+      return result.rows.length > 0 ? result.rows[0] : null
+    } catch (error) {
+      console.error("Error creating outlet:", error)
+      throw error
+    }
+  }
+
   static async updateOutlet(id: number, data: Partial<Outlet>): Promise<Outlet | null> {
     await DatabaseService.ensureInitialized()
 
@@ -225,11 +253,166 @@ export class DatabaseService {
     return result.rows
   }
 
+  static async createCategory(name: string): Promise<Category | null> {
+    await DatabaseService.ensureInitialized()
+
+    try {
+      const result = await sql<Category>`
+        INSERT INTO categories (name, created_at, updated_at)
+        VALUES (${name}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING *
+      `
+      return result.rows.length > 0 ? result.rows[0] : null
+    } catch (error) {
+      console.error("Error creating category:", error)
+      throw error
+    }
+  }
+
+  static async updateCategories(categories: string[]): Promise<boolean> {
+    await DatabaseService.ensureInitialized()
+
+    try {
+      // Start a transaction
+      await sql`BEGIN`
+
+      // Get existing categories
+      const existingCategories = await sql<Category>`SELECT * FROM categories`
+      const existingNames = existingCategories.rows.map((cat) => cat.name)
+
+      // Find categories to add
+      const categoriesToAdd = categories.filter((name) => !existingNames.includes(name))
+
+      // Find categories to remove
+      const categoriesToRemove = existingNames.filter((name) => !categories.includes(name))
+
+      // Add new categories
+      for (const categoryName of categoriesToAdd) {
+        await sql`
+          INSERT INTO categories (name, created_at, updated_at)
+          VALUES (${categoryName}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `
+      }
+
+      // Remove categories (only if no outlets are using them)
+      for (const categoryName of categoriesToRemove) {
+        const category = existingCategories.rows.find((cat) => cat.name === categoryName)
+        if (category) {
+          // Check if any outlets are using this category
+          const outletsUsingCategory = await sql`
+            SELECT COUNT(*) FROM outlets WHERE category_id = ${category.id}
+          `
+
+          if (outletsUsingCategory.rows[0].count === "0") {
+            await sql`DELETE FROM categories WHERE id = ${category.id}`
+          } else {
+            console.warn(`Cannot delete category "${categoryName}" - it's being used by outlets`)
+          }
+        }
+      }
+
+      await sql`COMMIT`
+      return true
+    } catch (error) {
+      await sql`ROLLBACK`
+      console.error("Error updating categories:", error)
+      throw error
+    }
+  }
+
+  static async deleteCategory(id: number): Promise<boolean> {
+    await DatabaseService.ensureInitialized()
+
+    try {
+      // Check if any outlets are using this category
+      const outletsUsingCategory = await sql`
+        SELECT COUNT(*) FROM outlets WHERE category_id = ${id}
+      `
+
+      if (outletsUsingCategory.rows[0].count !== "0") {
+        throw new Error("Cannot delete category - it's being used by outlets")
+      }
+
+      await sql`DELETE FROM categories WHERE id = ${id}`
+      return true
+    } catch (error) {
+      console.error("Error deleting category:", error)
+      throw error
+    }
+  }
+
   // Regions
   static async getRegions(): Promise<Region[]> {
     await DatabaseService.ensureInitialized()
     const result = await sql<Region>`SELECT * FROM regions ORDER BY name`
     return result.rows
+  }
+
+  static async createRegion(name: string): Promise<Region | null> {
+    await DatabaseService.ensureInitialized()
+
+    try {
+      const result = await sql<Region>`
+        INSERT INTO regions (name, created_at, updated_at)
+        VALUES (${name}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING *
+      `
+      return result.rows.length > 0 ? result.rows[0] : null
+    } catch (error) {
+      console.error("Error creating region:", error)
+      throw error
+    }
+  }
+
+  static async updateRegions(regions: string[]): Promise<boolean> {
+    await DatabaseService.ensureInitialized()
+
+    try {
+      // Start a transaction
+      await sql`BEGIN`
+
+      // Get existing regions
+      const existingRegions = await sql<Region>`SELECT * FROM regions`
+      const existingNames = existingRegions.rows.map((reg) => reg.name)
+
+      // Find regions to add
+      const regionsToAdd = regions.filter((name) => !existingNames.includes(name))
+
+      // Find regions to remove
+      const regionsToRemove = existingNames.filter((name) => !regions.includes(name))
+
+      // Add new regions
+      for (const regionName of regionsToAdd) {
+        await sql`
+          INSERT INTO regions (name, created_at, updated_at)
+          VALUES (${regionName}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `
+      }
+
+      // Remove regions (only if no outlets are using them)
+      for (const regionName of regionsToRemove) {
+        const region = existingRegions.rows.find((reg) => reg.name === regionName)
+        if (region) {
+          // Check if any outlets are using this region
+          const outletsUsingRegion = await sql`
+            SELECT COUNT(*) FROM outlets WHERE region_id = ${region.id}
+          `
+
+          if (outletsUsingRegion.rows[0].count === "0") {
+            await sql`DELETE FROM regions WHERE id = ${region.id}`
+          } else {
+            console.warn(`Cannot delete region "${regionName}" - it's being used by outlets`)
+          }
+        }
+      }
+
+      await sql`COMMIT`
+      return true
+    } catch (error) {
+      await sql`ROLLBACK`
+      console.error("Error updating regions:", error)
+      throw error
+    }
   }
 
   // Stock Levels
@@ -465,7 +648,7 @@ export class DatabaseService {
         RETURNING *
       `
 
-      return result.rows[0]
+      return result.rows.length > 0 ? result.rows[0] : null
     } catch (error) {
       console.error("Error adding audit entry:", error)
       return null
@@ -528,6 +711,10 @@ class DatabaseServiceInstance {
     return DatabaseService.getOutletById(id)
   }
 
+  async createOutlet(data: Partial<Outlet>) {
+    return DatabaseService.createOutlet(data)
+  }
+
   async updateOutlet(id: number, data: Partial<Outlet>) {
     return DatabaseService.updateOutlet(id, data)
   }
@@ -548,8 +735,28 @@ class DatabaseServiceInstance {
     return DatabaseService.getCategories()
   }
 
+  async createCategory(name: string) {
+    return DatabaseService.createCategory(name)
+  }
+
+  async updateCategories(categories: string[]) {
+    return DatabaseService.updateCategories(categories)
+  }
+
+  async deleteCategory(id: number) {
+    return DatabaseService.deleteCategory(id)
+  }
+
   async getRegions() {
     return DatabaseService.getRegions()
+  }
+
+  async createRegion(name: string) {
+    return DatabaseService.createRegion(name)
+  }
+
+  async updateRegions(regions: string[]) {
+    return DatabaseService.updateRegions(regions)
   }
 
   async getStockLevels(outletId: number) {

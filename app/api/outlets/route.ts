@@ -60,15 +60,20 @@ export async function POST(request: Request) {
       )
     }
 
-    // For now, return success with validated data
-    // In real implementation, you'd call DatabaseService.createOutlet(validation.data)
+    // Create outlet in database
+    const newOutlet = await DatabaseService.createOutlet(validation.data)
+
+    if (!newOutlet) {
+      throw new Error("Failed to create outlet")
+    }
+
     return NextResponse.json(
       {
         success: true,
-        message: "Outlet validation passed",
-        data: validation.data,
+        message: "Outlet created successfully",
+        data: newOutlet,
       },
-      { status: 200 },
+      { status: 201 },
     )
   } catch (error) {
     console.error("Error creating outlet:", error)
