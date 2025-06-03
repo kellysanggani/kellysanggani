@@ -5,18 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import {
-  BarChart3,
-  ClipboardList,
-  LogOut,
-  Menu,
-  Settings,
-  User,
-  Building2,
-  Package,
-  Tag,
-  LayoutGrid,
-} from "lucide-react"
+import { BarChart3, ClipboardList, LogOut, Menu, Settings, User, Building2, Package, Tag, Grid3X3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -54,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { name: "Outlet Details", href: "/detail", icon: ClipboardList },
     { name: "Outlet Management", href: "/outlets", icon: Building2 },
     { name: "Categories & Regions", href: "/categories", icon: Tag },
-    { name: "Product Mapping", href: "/product-mapping", icon: LayoutGrid },
+    { name: "Product Mapping", href: "/product-mapping", icon: Grid3X3 },
     { name: "Product Settings", href: "/products", icon: Package },
     { name: "User Settings", href: "/settings", icon: Settings },
   ]
