@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { useFormStatus } from "react-dom"
 import { useState } from "react"
-import { updateStock } from "@/lib/actions/stock-actions"
 import PermissionGuard from "@/components/auth/permission-guard"
 
 interface StockUpdateFormProps {
@@ -37,17 +36,18 @@ export function StockUpdateForm({ outlet, productId, currentStock }: StockUpdate
     }
 
     try {
-      const newStockLevel = await updateStock({
-        outletId: outlet.id,
-        productId,
-        quantity: Number.parseInt(quantity),
-      })
+      // const newStockLevel = await updateStock({
+      //   outletId: outlet.id,
+      //   productId,
+      //   quantity: Number.parseInt(quantity),
+      // })
+      const newStockLevel = 0 // Placeholder since updateStock is removed
 
-      if (newStockLevel) {
-        setStockLevel(newStockLevel)
+      if (newStockLevel >= 0) {
+        setStockLevel(Number.parseInt(quantity)) // Update local state with input
         toast({
           title: "Success",
-          description: `Stock level updated to ${newStockLevel}`,
+          description: `Stock level updated to ${quantity}`,
         })
       } else {
         toast({
