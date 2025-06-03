@@ -1,355 +1,419 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { useToast } from "@/components/ui/use-toast"
-import { AlertCircle, Edit, Loader2, Package, RefreshCw, ScanLine } from "lucide-react"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { CalendarIcon, Edit, Package, AlertCircle, Loader2, RefreshCw, Barcode } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
+import { toast } from "@/components/ui/use-toast"
+import { Toaster } from "@/components/ui/toaster"
+import { useApi, apiCall } from "@/lib/hooks/use-api"
+import type { Product } from "@/lib/db/database-service"
 
-interface Product {
-  id: number
-  name: string
-  category_id?: number
-  supplier?: string
-  barcode?: string
-  box_unit?: string
-  expiration_details?: string
-  low_threshold?: number
-  critical_threshold?: number
-  created_at: string
-  updated_at: string
-}
-
-interface Category {
-  id: number
-  name: string
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return "Not set"
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) return "Invalid date"
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }).format(date)
+  } catch (error) {
+    console.error("Date formatting error:", error)
+    return "Invalid date"
+  }
 }
 
 export default function ProductInfoManagement() {
-  const { toast } = useToast()
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const { data: products, loading, error, mutate } = useApi<Product[]>("/api/products")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [formData, setFormData] = useState({
-    name: "",
-    category_id: "",
-    supplier: "",
-    barcode: "",
-    box_unit: "",
-    expiration_details: "",
-    low_threshold: "",
-    critical_threshold: "",
-  })
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [expirationDate, setExpirationDate] = useState<Date | undefined>()
+  const [availability, setAvailability] = useState("")
+  const [barcode, setBarcode] = useState("")
 
-  // Fetch products and categories
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [productsRes, categoriesRes] = await Promise.all([fetch("/api/products"), fetch("/api/categories")])
+  const getAvailabilityBadge = (availability: string | null) => {
+    if (!availability) return <Badge variant="outline">Unknown</Badge>
 
-        if (productsRes.ok) {
-          const productsData = await productsRes.json()
-          setProducts(productsData)
-        }
-
-        if (categoriesRes.ok) {
-          const categoriesData = await categoriesRes.json()
-          setCategories(categoriesData)
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error)
-        toast({
-          title: "Error",
-          description: "Failed to load data. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
-      }
+    switch (availability) {
+      case "In Stock":
+        return <Badge className="bg-green-500">In Stock</Badge>
+      case "Low Stock":
+        return <Badge className="bg-yellow-500">Low Stock</Badge>
+      case "Out of Stock":
+        return <Badge className="bg-red-500">Out of Stock</Badge>
+      default:
+        return <Badge variant="outline">{availability}</Badge>
     }
+  }
 
-    fetchData()
-  }, [toast])
+  const isExpiringSoon = (expirationDate: string | null) => {
+    if (!expirationDate) return false
+    try {
+      const expDate = new Date(expirationDate)
+      if (isNaN(expDate.getTime())) return false
+      const today = new Date()
+      const diffTime = expDate.getTime() - today.getTime()
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      return diffDays <= 30 && diffDays > 0
+    } catch (error) {
+      console.error("Error checking expiration:", error)
+      return false
+    }
+  }
+
+  const isExpired = (expirationDate: string | null) => {
+    if (!expirationDate) return false
+    try {
+      const expDate = new Date(expirationDate)
+      if (isNaN(expDate.getTime())) return false
+      const today = new Date()
+      return expDate < today
+    } catch (error) {
+      console.error("Error checking expiration:", error)
+      return false
+    }
+  }
 
   const handleEdit = (product: Product) => {
-    setEditingProduct(product)
-    setFormData({
-      name: product.name || "",
-      category_id: product.category_id?.toString() || "0",
-      supplier: product.supplier || "",
-      barcode: product.barcode || "",
-      box_unit: product.box_unit || "",
-      expiration_details: product.expiration_details || "",
-      low_threshold: product.low_threshold?.toString() || "",
-      critical_threshold: product.critical_threshold?.toString() || "",
-    })
+    try {
+      setEditingProduct(product)
+
+      // Safely set expiration date
+      if (product.expiration_date) {
+        try {
+          const date = new Date(product.expiration_date)
+          if (!isNaN(date.getTime())) {
+            setExpirationDate(date)
+          } else {
+            setExpirationDate(undefined)
+          }
+        } catch (error) {
+          console.error("Error parsing expiration date:", error)
+          setExpirationDate(undefined)
+        }
+      } else {
+        setExpirationDate(undefined)
+      }
+
+      setAvailability(product.availability || "In Stock")
+      setBarcode(product.barcode || "")
+      setIsDialogOpen(true)
+    } catch (error) {
+      console.error("Error opening edit dialog:", error)
+      toast({
+        title: "Error",
+        description: "Failed to open edit dialog. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleSave = async () => {
     if (!editingProduct) return
 
-    setSaving(true)
+    setIsSaving(true)
     try {
-      const response = await fetch(`/api/products/${editingProduct.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...formData,
-          category_id: formData.category_id ? Number.parseInt(formData.category_id) : null,
-          low_threshold: formData.low_threshold ? Number.parseInt(formData.low_threshold) : null,
-          critical_threshold: formData.critical_threshold ? Number.parseInt(formData.critical_threshold) : null,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Failed to update product")
+      const updates = {
+        expiration_date: expirationDate ? expirationDate.toISOString().split("T")[0] : null,
+        availability,
+        barcode,
       }
 
-      const updatedProduct = await response.json()
-      setProducts(products.map((p) => (p.id === editingProduct.id ? updatedProduct : p)))
-      setEditingProduct(null)
+      console.log("Saving product updates:", updates)
+
+      await apiCall(`/api/products/${editingProduct.id}`, {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      })
 
       toast({
-        title: "Success",
-        description: "Product updated successfully.",
+        title: "✅ Product Updated Successfully!",
+        description: `${editingProduct.name} information has been updated.`,
+        duration: 4000,
       })
+
+      // Refresh the data
+      await mutate()
+      setIsDialogOpen(false)
+      setEditingProduct(null)
     } catch (error) {
       console.error("Error updating product:", error)
       toast({
-        title: "Error",
-        description: "Failed to update product. Please try again.",
+        title: "❌ Update Failed",
+        description: error instanceof Error ? error.message : "Failed to update product information.",
         variant: "destructive",
+        duration: 6000,
       })
     } finally {
-      setSaving(false)
+      setIsSaving(false)
     }
   }
 
-  const handleCancel = () => {
-    setEditingProduct(null)
-    setFormData({
-      name: "",
-      category_id: "0",
-      supplier: "",
-      barcode: "",
-      box_unit: "",
-      expiration_details: "",
-      low_threshold: "",
-      critical_threshold: "",
-    })
-  }
-
-  const getCategoryName = (categoryId?: number) => {
-    if (!categoryId) return "Uncategorized"
-    const category = categories.find((c) => c.id === categoryId)
-    return category?.name || "Unknown"
+  const handleRefresh = async () => {
+    try {
+      await mutate()
+      toast({
+        title: "Data Refreshed",
+        description: "Product data has been refreshed successfully.",
+      })
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh product data. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   if (loading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center p-6">
-          <Loader2 className="h-6 w-6 animate-spin mr-2" />
-          Loading products...
+        <CardContent className="p-8">
+          <div className="flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <span className="ml-2">Loading products...</span>
+          </div>
         </CardContent>
       </Card>
     )
   }
 
-  return (
-    <div className="space-y-6">
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-8">
+          <div className="text-center space-y-4">
+            <div className="text-red-600">
+              <AlertCircle className="h-12 w-12 mx-auto mb-2" />
+              <h3 className="text-lg font-semibold">Error Loading Products</h3>
+              <p className="text-sm">There was a problem loading the product data.</p>
+              <p className="text-xs mt-2 text-gray-500">Error: {error}</p>
+            </div>
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Try Again
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Safely filter and validate products
+  const validProducts = Array.isArray(products)
+    ? products.filter(
+        (product) =>
+          product && typeof product === "object" && typeof product.id === "number" && typeof product.name === "string",
+      )
+    : []
+
+  if (validProducts.length === 0) {
+    return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Product Information Management
           </CardTitle>
-          <CardDescription>Manage product details, categories, and inventory thresholds</CardDescription>
+          <CardDescription>Manage product expiration dates and availability status</CardDescription>
         </CardHeader>
-        <CardContent>
-          {editingProduct ? (
-            <div className="space-y-4">
-              <Alert>
-                <Edit className="h-4 w-4" />
-                <AlertTitle>Editing Product</AlertTitle>
-                <AlertDescription>You are currently editing: {editingProduct.name}</AlertDescription>
-              </Alert>
+        <CardContent className="p-8">
+          <div className="text-center space-y-4">
+            <div className="text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <h3 className="text-lg font-semibold">No Products Found</h3>
+              <p className="text-sm">There are no products to display at the moment.</p>
+            </div>
+            <Button onClick={handleRefresh} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Data
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Product Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Enter product name"
-                  />
-                </div>
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Product Information Management
+            </CardTitle>
+            <CardDescription>Manage product expiration dates and availability status</CardDescription>
+          </div>
+          <Button onClick={handleRefresh} variant="outline" size="sm">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {validProducts.map((product) => {
+            try {
+              const productExpired = isExpired(product.expiration_date)
+              const productExpiringSoon = isExpiringSoon(product.expiration_date)
 
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select
-                    value={formData.category_id}
-                    onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="0">No Category</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="supplier">Supplier</Label>
-                  <Input
-                    id="supplier"
-                    value={formData.supplier}
-                    onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                    placeholder="Enter supplier name"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="barcode">Barcode</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="barcode"
-                      value={formData.barcode}
-                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                      placeholder="Enter or scan barcode"
-                    />
-                    <Button type="button" variant="outline" size="icon">
-                      <ScanLine className="h-4 w-4" />
-                    </Button>
+              return (
+                <div
+                  key={product.id}
+                  className={cn(
+                    "flex items-center justify-between p-4 border rounded-lg transition-colors",
+                    productExpired && "border-red-500 bg-red-50",
+                    productExpiringSoon && !productExpired && "border-yellow-500 bg-yellow-50",
+                  )}
+                >
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium">{product.name || "Unnamed Product"}</h4>
+                      {(productExpired || productExpiringSoon) && <AlertCircle className="h-4 w-4 text-red-500" />}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span>Supplier: {product.supplier || "Unknown"}</span>
+                      <span>•</span>
+                      <span>Expires: {formatDate(product.expiration_date)}</span>
+                      <span>•</span>
+                      <span>Updated: {formatDate(product.last_updated)}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {getAvailabilityBadge(product.availability)}
+                      {product.barcode && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <Barcode className="h-3 w-3" />
+                          <span className="font-mono">{product.barcode}</span>
+                        </div>
+                      )}
+                      {productExpired && (
+                        <Badge variant="destructive" className="text-xs">
+                          Expired
+                        </Badge>
+                      )}
+                      {productExpiringSoon && !productExpired && (
+                        <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700">
+                          Expires Soon
+                        </Badge>
+                      )}
+                    </div>
                   </div>
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(product)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
                 </div>
+              )
+            } catch (error) {
+              console.error("Error rendering product:", product, error)
+              return (
+                <div key={product.id || Math.random()} className="p-4 border rounded-lg bg-red-50 border-red-200">
+                  <p className="text-red-600 text-sm">Error displaying product data</p>
+                </div>
+              )
+            }
+          })}
+        </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="box_unit">Box Unit</Label>
-                  <Input
-                    id="box_unit"
-                    value={formData.box_unit}
-                    onChange={(e) => setFormData({ ...formData, box_unit: e.target.value })}
-                    placeholder="e.g., 24 pcs/box"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="low_threshold">Low Stock Threshold</Label>
-                  <Input
-                    id="low_threshold"
-                    type="number"
-                    value={formData.low_threshold}
-                    onChange={(e) => setFormData({ ...formData, low_threshold: e.target.value })}
-                    placeholder="Enter minimum stock level"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="critical_threshold">Critical Stock Threshold</Label>
-                  <Input
-                    id="critical_threshold"
-                    type="number"
-                    value={formData.critical_threshold}
-                    onChange={(e) => setFormData({ ...formData, critical_threshold: e.target.value })}
-                    placeholder="Enter critical stock level"
-                  />
-                </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Update Product Information</DialogTitle>
+              <DialogDescription>
+                Update expiration date and availability status for {editingProduct?.name || "this product"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>Expiration Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !expirationDate && "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {expirationDate ? formatDate(expirationDate.toISOString()) : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar mode="single" selected={expirationDate} onSelect={setExpirationDate} initialFocus />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="expiration_details">Expiration Details</Label>
-                <Textarea
-                  id="expiration_details"
-                  value={formData.expiration_details}
-                  onChange={(e) => setFormData({ ...formData, expiration_details: e.target.value })}
-                  placeholder="Enter expiration information, storage requirements, etc."
-                  className="min-h-[100px]"
-                />
+                <Label>Availability Status</Label>
+                <Select value={availability} onValueChange={setAvailability}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select availability" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="In Stock">In Stock</SelectItem>
+                    <SelectItem value="Low Stock">Low Stock</SelectItem>
+                    <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Changes
-                </Button>
-                <Button variant="outline" onClick={handleCancel} disabled={saving}>
-                  Cancel
-                </Button>
+              <div className="space-y-2">
+                <Label>Barcode</Label>
+                <div className="flex items-center gap-2">
+                  <Barcode className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    placeholder="Enter product barcode"
+                    className="font-mono"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter the product barcode for scanning and identification
+                </p>
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">Click on a product to edit its information</p>
-                <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh
-                </Button>
-              </div>
-
-              <div className="grid gap-4">
-                {products.length === 0 ? (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>No Products Found</AlertTitle>
-                    <AlertDescription>
-                      No products are available. Add products through the Product Settings page.
-                    </AlertDescription>
-                  </Alert>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button type="submit" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
                 ) : (
-                  products.map((product) => (
-                    <Card
-                      key={product.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleEdit(product)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <h3 className="font-medium">{product.name}</h3>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Badge variant="secondary">{getCategoryName(product.category_id)}</Badge>
-                              {product.supplier && <span>Supplier: {product.supplier}</span>}
-                              {product.barcode && <span>Barcode: {product.barcode}</span>}
-                            </div>
-                          </div>
-                          <div className="text-right text-sm text-muted-foreground">
-                            <div>Box Unit: {product.box_unit || "Not set"}</div>
-                            <div className="flex gap-2">
-                              {product.low_threshold && <Badge variant="outline">Low: {product.low_threshold}</Badge>}
-                              {product.critical_threshold && (
-                                <Badge variant="destructive">Critical: {product.critical_threshold}</Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                  "Save changes"
                 )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+      <Toaster />
+    </Card>
   )
 }
