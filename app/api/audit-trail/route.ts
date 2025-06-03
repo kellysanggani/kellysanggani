@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { DatabaseService } from "@/lib/db/database-service"
 
-export const dynamic = "force-dynamic"
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Instead of using request.url which causes dynamic server usage error,
-    // we'll return all audit trail entries
-    const auditTrail = DatabaseService.getAuditTrail()
+    const { searchParams } = new URL(request.url)
+    const entityType = searchParams.get("entityType") || undefined
+    const entityId = searchParams.get("entityId") ? Number.parseInt(searchParams.get("entityId")!) : undefined
+
+    const auditTrail = DatabaseService.getAuditTrail(entityType, entityId)
     return NextResponse.json(auditTrail)
   } catch (error) {
     console.error("Error fetching audit trail:", error)
