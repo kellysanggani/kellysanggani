@@ -16,9 +16,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, Loader2, AlertCircle, RefreshCw } from "lucide-react"
+import { Edit, Loader2, AlertCircle, RefreshCw, Upload, Plus } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import OutletBulkImport from "./outlet-bulk-import"
 
 // Define safe interfaces
 interface SafeOutlet {
@@ -46,6 +50,20 @@ interface SafeRegion {
   name: string
 }
 
+const formSchema = z.object({
+  name: z.string().min(2, {
+    message: "Outlet name must be at least 2 characters.",
+  }),
+  category_id: z.number(),
+  region_id: z.number(),
+  store_name: z.string().nullable(),
+  address: z.string().nullable(),
+  phone: z.string().nullable(),
+  email: z.string().nullable(),
+  pic_name: z.string().nullable(),
+  pic_contact: z.string().nullable(),
+})
+
 export default function OutletManagementTable() {
   const [outlets, setOutlets] = useState<SafeOutlet[]>([])
   const [categories, setCategories] = useState<SafeCategory[]>([])
@@ -56,17 +74,21 @@ export default function OutletManagementTable() {
   const [editingOutlet, setEditingOutlet] = useState<SafeOutlet | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false)
 
-  const [formData, setFormData] = useState({
-    name: "",
-    category_id: 0,
-    region_id: 0,
-    store_name: "",
-    address: "",
-    phone: "",
-    email: "",
-    pic_name: "",
-    pic_contact: "",
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      category_id: 0,
+      region_id: 0,
+      store_name: null,
+      address: null,
+      phone: null,
+      email: null,
+      pic_name: null,
+      pic_contact: null,
+    },
   })
 
   // Fetch data with comprehensive error handling
@@ -215,16 +237,16 @@ export default function OutletManagementTable() {
 
   const handleEdit = (outlet: SafeOutlet) => {
     setEditingOutlet(outlet)
-    setFormData({
+    form.reset({
       name: outlet.name || "",
       category_id: outlet.category_id || 0,
       region_id: outlet.region_id || 0,
-      store_name: outlet.store_name || "",
-      address: outlet.address || "",
-      phone: outlet.phone || "",
-      email: outlet.email || "",
-      pic_name: outlet.pic_name || "",
-      pic_contact: outlet.pic_contact || "",
+      store_name: outlet.store_name || null,
+      address: outlet.address || null,
+      phone: outlet.phone || null,
+      email: outlet.email || null,
+      pic_name: outlet.pic_name || null,
+      pic_contact: outlet.pic_contact || null,
     })
     setIsDialogOpen(true)
   }
@@ -232,24 +254,52 @@ export default function OutletManagementTable() {
   const handleSave = async () => {
     if (!editingOutlet) return
 
+    // Validate required fields
+    if (!form.getValues("name").trim()) {
+      toast({
+        title: "❌ Validation Error",
+        description: "Outlet name is required.",
+        variant: "destructive",
+        duration: 4000,
+      })
+      return
+    }
+
     setIsSaving(true)
     try {
+      // Prepare data for API call
+      const updateData = {
+        name: form.getValues("name").trim(),
+        category_id: form.getValues("category_id") === 0 ? null : form.getValues("category_id"),
+        region_id: form.getValues("region_id") === 0 ? null : form.getValues("region_id"),
+        store_name: form.getValues("store_name")?.trim() || null,
+        address: form.getValues("address")?.trim() || null,
+        phone: form.getValues("phone")?.trim() || null,
+        email: form.getValues("email")?.trim() || null,
+        pic_name: form.getValues("pic_name")?.trim() || null,
+        pic_contact: form.getValues("pic_contact")?.trim() || null,
+      }
+
+      console.log("Sending update data:", updateData)
+
       const response = await fetch(`/api/outlets/${editingOutlet.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(updateData),
       })
 
+      const responseData = await response.json()
+      console.log("API Response:", responseData)
+
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to update outlet")
+        throw new Error(responseData.error || responseData.details?.[0] || "Failed to update outlet")
       }
 
       toast({
-        title: "✅ Outlet Updated Successfully!",
-        description: "Outlet information has been successfully updated.",
+        title: "✅ Success!",
+        description: "Outlet has been updated successfully.",
         duration: 4000,
       })
 
@@ -285,6 +335,11 @@ export default function OutletManagementTable() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const handleCreate = () => {
+    // TODO: Implement create outlet functionality
+    console.log("Create outlet clicked")
   }
 
   if (loading) {
@@ -332,6 +387,19 @@ export default function OutletManagementTable() {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Outlets ({outlets.length})</h3>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsBulkImportOpen(true)} variant="outline">
+            <Upload className="h-4 w-4 mr-2" />
+            Bulk Import
+          </Button>
+          <Button onClick={handleCreate}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Outlet
+          </Button>
+        </div>
+      </div>
       <Card>
         <div className="rounded-md border">
           <Table>
@@ -378,77 +446,45 @@ export default function OutletManagementTable() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Outlet Name</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+              <Input id="name" {...form.register("name")} placeholder="Outlet Name" />
+              {form.formState.errors.name && (
+                <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="storeName">Store Name</Label>
-              <Input
-                id="storeName"
-                value={formData.store_name}
-                onChange={(e) => setFormData({ ...formData, store_name: e.target.value })}
-                placeholder="Optional store name"
-              />
+              <Input id="storeName" {...form.register("store_name")} placeholder="Optional store name" />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Full address"
-              />
+              <Input id="address" {...form.register("address")} placeholder="Full address" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="+1 (555) 123-4567"
-                />
+                <Input id="phone" {...form.register("phone")} placeholder="+1 (555) 123-4567" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="outlet@example.com"
-                />
+                <Input id="email" type="email" {...form.register("email")} placeholder="outlet@example.com" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="picName">PIC Name</Label>
-                <Input
-                  id="picName"
-                  value={formData.pic_name}
-                  onChange={(e) => setFormData({ ...formData, pic_name: e.target.value })}
-                  placeholder="Person in charge name"
-                />
+                <Input id="picName" {...form.register("pic_name")} placeholder="Person in charge name" />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="picContact">PIC Contact</Label>
-                <Input
-                  id="picContact"
-                  value={formData.pic_contact}
-                  onChange={(e) => setFormData({ ...formData, pic_contact: e.target.value })}
-                  placeholder="+1 (555) 123-4567"
-                />
+                <Input id="picContact" {...form.register("pic_contact")} placeholder="+1 (555) 123-4567" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                  value={formData.category_id.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, category_id: Number.parseInt(value) })}
+                  onValueChange={(value) => form.setValue("category_id", Number.parseInt(value))}
+                  defaultValue={form.getValues("category_id").toString()}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -465,8 +501,8 @@ export default function OutletManagementTable() {
               <div className="grid gap-2">
                 <Label htmlFor="region">Region</Label>
                 <Select
-                  value={formData.region_id.toString()}
-                  onValueChange={(value) => setFormData({ ...formData, region_id: Number.parseInt(value) })}
+                  onValueChange={(value) => form.setValue("region_id", Number.parseInt(value))}
+                  defaultValue={form.getValues("region_id").toString()}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select region" />
@@ -496,6 +532,14 @@ export default function OutletManagementTable() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OutletBulkImport
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        onSuccess={fetchData}
+        categories={categories}
+        regions={regions}
+      />
 
       <Toaster />
     </div>

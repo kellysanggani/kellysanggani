@@ -37,8 +37,16 @@ export function validateOutlet(data: any): ValidationResult {
   }
 
   // Optional fields validation
+  if (data.store_name && (typeof data.store_name !== "string" || data.store_name.length > 255)) {
+    errors.push("Store name must be a string with less than 255 characters")
+  }
+
   if (data.address && (typeof data.address !== "string" || data.address.length > 1000)) {
     errors.push("Address must be a string with less than 1000 characters")
+  }
+
+  if (data.phone && (typeof data.phone !== "string" || data.phone.length > 50)) {
+    errors.push("Phone must be a string with less than 50 characters")
   }
 
   if (data.pic_name && (typeof data.pic_name !== "string" || data.pic_name.length > 255)) {
@@ -57,6 +65,23 @@ export function validateOutlet(data: any): ValidationResult {
     errors.push("Sales person must be a string with less than 255 characters")
   }
 
+  // Validate category_id and region_id
+  if (
+    data.category_id !== null &&
+    data.category_id !== undefined &&
+    (typeof data.category_id !== "number" || data.category_id <= 0)
+  ) {
+    errors.push("Category ID must be a positive number or null")
+  }
+
+  if (
+    data.region_id !== null &&
+    data.region_id !== undefined &&
+    (typeof data.region_id !== "number" || data.region_id <= 0)
+  ) {
+    errors.push("Region ID must be a positive number or null")
+  }
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -64,11 +89,15 @@ export function validateOutlet(data: any): ValidationResult {
       errors.length === 0
         ? {
             name: data.name.trim(),
+            store_name: data.store_name?.trim() || null,
             address: data.address?.trim() || null,
+            phone: data.phone?.trim() || null,
+            email: data.email?.trim() || null,
             pic_name: data.pic_name?.trim() || null,
             pic_contact: data.pic_contact?.trim() || null,
-            email: data.email?.trim() || null,
             sales_person: data.sales_person?.trim() || null,
+            category_id: data.category_id || null,
+            region_id: data.region_id || null,
           }
         : undefined,
   }
