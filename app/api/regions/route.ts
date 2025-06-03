@@ -53,13 +53,10 @@ export async function PUT(request: NextRequest) {
     // Update regions in database
     await DatabaseService.updateRegions(validatedRegions)
 
-    // Fetch updated regions to return
-    const updatedRegions = await DatabaseService.getRegions()
-
     return NextResponse.json({
       success: true,
       message: `Successfully updated ${validatedRegions.length} regions`,
-      data: updatedRegions,
+      data: validatedRegions,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
@@ -67,48 +64,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to update regions",
-        details: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const rawData = await request.json()
-    console.log("API: Creating region with data:", rawData)
-
-    if (!rawData.name || typeof rawData.name !== "string") {
-      return NextResponse.json(
-        {
-          error: "Validation failed",
-          details: "Region name is required and must be a string",
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 },
-      )
-    }
-
-    // Create region in database
-    const newRegion = await DatabaseService.createRegion(rawData.name.trim())
-
-    if (!newRegion) {
-      throw new Error("Failed to create region")
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Successfully created region "${newRegion.name}"`,
-      data: newRegion,
-      timestamp: new Date().toISOString(),
-    })
-  } catch (error) {
-    console.error("Error creating region:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to create region",
         details: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
       },

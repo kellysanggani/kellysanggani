@@ -53,13 +53,10 @@ export async function PUT(request: NextRequest) {
     // Update categories in database
     await DatabaseService.updateCategories(validatedCategories)
 
-    // Fetch updated categories to return
-    const updatedCategories = await DatabaseService.getCategories()
-
     return NextResponse.json({
       success: true,
       message: `Successfully updated ${validatedCategories.length} categories`,
-      data: updatedCategories,
+      data: validatedCategories,
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
@@ -67,48 +64,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to update categories",
-        details: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 },
-    )
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const rawData = await request.json()
-    console.log("API: Creating category with data:", rawData)
-
-    if (!rawData.name || typeof rawData.name !== "string") {
-      return NextResponse.json(
-        {
-          error: "Validation failed",
-          details: "Category name is required and must be a string",
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 },
-      )
-    }
-
-    // Create category in database
-    const newCategory = await DatabaseService.createCategory(rawData.name.trim())
-
-    if (!newCategory) {
-      throw new Error("Failed to create category")
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: `Successfully created category "${newCategory.name}"`,
-      data: newCategory,
-      timestamp: new Date().toISOString(),
-    })
-  } catch (error) {
-    console.error("Error creating category:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to create category",
         details: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
       },

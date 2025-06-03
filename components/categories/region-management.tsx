@@ -91,9 +91,6 @@ export default function RegionManagement() {
       await mutate() // Refresh the data
       setHasChanges(false)
 
-      // Notify other components about the update
-      window.dispatchEvent(new CustomEvent("regionsUpdated"))
-
       toast({
         title: "Regions saved",
         description: "Your regions have been saved successfully.",

@@ -32,17 +32,38 @@ export default function DashboardStats() {
     try {
       setLoading(true)
 
-      // Fetch outlets
-      const outletsResponse = await fetch("/api/outlets")
-      const outlets = outletsResponse.ok ? await outletsResponse.json() : []
+      // Fetch all data in parallel
+      const [outletsResponse, productsResponse, usersResponse, salesTeamResponse] = await Promise.allSettled([
+        fetch("/api/outlets"),
+        fetch("/api/products"),
+        fetch("/api/users"),
+        fetch("/api/sales-team"),
+      ])
 
-      // Fetch products
-      const productsResponse = await fetch("/api/products")
-      const products = productsResponse.ok ? await productsResponse.json() : []
+      // Process outlets
+      let outlets: any[] = []
+      if (outletsResponse.status === "fulfilled" && outletsResponse.value.ok) {
+        outlets = await outletsResponse.value.json()
+      }
 
-      // Fetch users
-      const usersResponse = await fetch("/api/users")
-      const users = usersResponse.ok ? await usersResponse.json() : []
+      // Process products
+      let products: any[] = []
+      if (productsResponse.status === "fulfilled" && productsResponse.value.ok) {
+        products = await productsResponse.value.json()
+      }
+
+      // Process users
+      let users: any[] = []
+      if (usersResponse.status === "fulfilled" && usersResponse.value.ok) {
+        users = await usersResponse.value.json()
+      }
+
+      // Process sales team data
+      let salesTeamStats = null
+      if (salesTeamResponse.status === "fulfilled" && salesTeamResponse.value.ok) {
+        const salesData = await salesTeamResponse.value.json()
+        salesTeamStats = salesData.stats
+      }
 
       // Fetch stock levels for all outlets
       const stockPromises = outlets.map((outlet: any) =>
@@ -81,7 +102,7 @@ export default function DashboardStats() {
         totalProducts: products.length,
         lowStockItems: lowStockCount,
         outOfStockItems: outOfStockCount,
-        totalUsers: users.length,
+        totalUsers: salesTeamStats?.totalSalesStaff || users.length,
         recentUpdates,
       })
     } catch (error) {
