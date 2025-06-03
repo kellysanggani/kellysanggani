@@ -35,6 +35,9 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
+// Add getSession as an alias for getCurrentUser to match expected export
+export const getSession = getCurrentUser
+
 export async function setCurrentUser(user: User) {
   try {
     const cookieStore = cookies()
