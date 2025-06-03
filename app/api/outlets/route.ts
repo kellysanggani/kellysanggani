@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     }
 
     // Create outlet in database
-    const newOutlet = await DatabaseService.createOutlet(validation.data)
+    const newOutlet = await DatabaseService.createOutlet(validation.data!)
 
     if (!newOutlet) {
       throw new Error("Failed to create outlet")

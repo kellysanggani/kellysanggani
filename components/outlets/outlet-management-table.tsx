@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, Loader2, AlertCircle, RefreshCw } from "lucide-react"
+import { Edit, Loader2, AlertCircle, RefreshCw, Plus } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 
@@ -55,6 +55,7 @@ export default function OutletManagementTable() {
 
   const [editingOutlet, setEditingOutlet] = useState<SafeOutlet | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isCreateMode, setIsCreateMode] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
   const [formData, setFormData] = useState({
@@ -211,10 +212,30 @@ export default function OutletManagementTable() {
 
   useEffect(() => {
     fetchData()
+
+    // Listen for category/region updates
+    const handleCategoriesUpdated = () => {
+      console.log("Categories updated, refreshing data...")
+      fetchData()
+    }
+
+    const handleRegionsUpdated = () => {
+      console.log("Regions updated, refreshing data...")
+      fetchData()
+    }
+
+    window.addEventListener("categoriesUpdated", handleCategoriesUpdated)
+    window.addEventListener("regionsUpdated", handleRegionsUpdated)
+
+    return () => {
+      window.removeEventListener("categoriesUpdated", handleCategoriesUpdated)
+      window.removeEventListener("regionsUpdated", handleRegionsUpdated)
+    }
   }, [])
 
   const handleEdit = (outlet: SafeOutlet) => {
     setEditingOutlet(outlet)
+    setIsCreateMode(false)
     setFormData({
       name: outlet.name || "",
       category_id: outlet.category_id || 0,
@@ -229,13 +250,31 @@ export default function OutletManagementTable() {
     setIsDialogOpen(true)
   }
 
-  const handleSave = async () => {
-    if (!editingOutlet) return
+  const handleCreate = () => {
+    setEditingOutlet(null)
+    setIsCreateMode(true)
+    setFormData({
+      name: "",
+      category_id: 0,
+      region_id: 0,
+      store_name: "",
+      address: "",
+      phone: "",
+      email: "",
+      pic_name: "",
+      pic_contact: "",
+    })
+    setIsDialogOpen(true)
+  }
 
+  const handleSave = async () => {
     setIsSaving(true)
     try {
-      const response = await fetch(`/api/outlets/${editingOutlet.id}`, {
-        method: "PUT",
+      const url = isCreateMode ? "/api/outlets" : `/api/outlets/${editingOutlet?.id}`
+      const method = isCreateMode ? "POST" : "PUT"
+
+      const response = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -244,41 +283,27 @@ export default function OutletManagementTable() {
 
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to update outlet")
+        throw new Error(errorData.error || `Failed to ${isCreateMode ? "create" : "update"} outlet`)
       }
 
       toast({
-        title: "✅ Outlet Updated Successfully!",
-        description: "Outlet information has been successfully updated.",
+        title: `✅ Outlet ${isCreateMode ? "Created" : "Updated"} Successfully!`,
+        description: `Outlet information has been successfully ${isCreateMode ? "created" : "updated"}.`,
         duration: 4000,
       })
-
-      // After the successful toast message, add:
-      // Notify other components about the update
-      localStorage.setItem(`outlet_updated_${editingOutlet.id}`, new Date().toISOString())
-      window.dispatchEvent(
-        new StorageEvent("storage", {
-          key: `outlet_updated_${editingOutlet.id}`,
-          newValue: new Date().toISOString(),
-        }),
-      )
-
-      // Also trigger a custom event for same-page components
-      window.dispatchEvent(
-        new CustomEvent("outletUpdated", {
-          detail: { outletId: editingOutlet.id },
-        }),
-      )
 
       // Refresh the data
       await fetchData()
       setIsDialogOpen(false)
       setEditingOutlet(null)
     } catch (error) {
-      console.error("Error updating outlet:", error)
+      console.error(`Error ${isCreateMode ? "creating" : "updating"} outlet:`, error)
       toast({
-        title: "❌ Update Failed",
-        description: error instanceof Error ? error.message : "Failed to update outlet information.",
+        title: `❌ ${isCreateMode ? "Creation" : "Update"} Failed`,
+        description:
+          error instanceof Error
+            ? error.message
+            : `Failed to ${isCreateMode ? "create" : "update"} outlet information.`,
         variant: "destructive",
         duration: 6000,
       })
@@ -316,22 +341,16 @@ export default function OutletManagementTable() {
     )
   }
 
-  if (!outlets || outlets.length === 0) {
-    return (
-      <Card className="p-8">
-        <div className="text-center text-muted-foreground">
-          <p>No outlets found.</p>
-          <Button onClick={fetchData} variant="outline" className="mt-4">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
-      </Card>
-    )
-  }
-
   return (
     <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-semibold">Outlets ({outlets.length})</h3>
+        <Button onClick={handleCreate}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Outlet
+        </Button>
+      </div>
+
       <Card>
         <div className="rounded-md border">
           <Table>
@@ -347,23 +366,33 @@ export default function OutletManagementTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {outlets.map((outlet) => (
-                <TableRow key={outlet.id}>
-                  <TableCell className="font-medium">{outlet.name}</TableCell>
-                  <TableCell>{outlet.store_name || <span className="text-muted-foreground">Not set</span>}</TableCell>
-                  <TableCell>
-                    <Badge variant={outlet.category === "Premium" ? "default" : "secondary"}>{outlet.category}</Badge>
-                  </TableCell>
-                  <TableCell>{outlet.region}</TableCell>
-                  <TableCell>{outlet.pic_name || <span className="text-muted-foreground">Not set</span>}</TableCell>
-                  <TableCell>{outlet.pic_contact || <span className="text-muted-foreground">Not set</span>}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(outlet)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
+              {outlets.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No outlets found. Click "Add Outlet" to create your first outlet.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                outlets.map((outlet) => (
+                  <TableRow key={outlet.id}>
+                    <TableCell className="font-medium">{outlet.name}</TableCell>
+                    <TableCell>{outlet.store_name || <span className="text-muted-foreground">Not set</span>}</TableCell>
+                    <TableCell>
+                      <Badge variant={outlet.category === "Premium" ? "default" : "secondary"}>{outlet.category}</Badge>
+                    </TableCell>
+                    <TableCell>{outlet.region}</TableCell>
+                    <TableCell>{outlet.pic_name || <span className="text-muted-foreground">Not set</span>}</TableCell>
+                    <TableCell>
+                      {outlet.pic_contact || <span className="text-muted-foreground">Not set</span>}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(outlet)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
@@ -372,16 +401,20 @@ export default function OutletManagementTable() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Outlet</DialogTitle>
-            <DialogDescription>Update outlet information.</DialogDescription>
+            <DialogTitle>{isCreateMode ? "Create New Outlet" : "Edit Outlet"}</DialogTitle>
+            <DialogDescription>
+              {isCreateMode ? "Enter outlet information to create a new outlet." : "Update outlet information."}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Outlet Name</Label>
+              <Label htmlFor="name">Outlet Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Enter outlet name"
+                required
               />
             </div>
             <div className="grid gap-2">
@@ -454,6 +487,7 @@ export default function OutletManagementTable() {
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="0">No category</SelectItem>
                     {categories?.map((category) => (
                       <SelectItem key={category.id} value={category.id.toString()}>
                         {category.name}
@@ -472,6 +506,7 @@ export default function OutletManagementTable() {
                     <SelectValue placeholder="Select region" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="0">No region</SelectItem>
                     {regions?.map((region) => (
                       <SelectItem key={region.id} value={region.id.toString()}>
                         {region.name}
@@ -483,12 +518,14 @@ export default function OutletManagementTable() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="submit" onClick={handleSave} disabled={isSaving}>
+            <Button type="submit" onClick={handleSave} disabled={isSaving || !formData.name.trim()}>
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {isCreateMode ? "Creating..." : "Saving..."}
                 </>
+              ) : isCreateMode ? (
+                "Create Outlet"
               ) : (
                 "Save changes"
               )}

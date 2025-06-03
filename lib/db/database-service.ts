@@ -126,7 +126,7 @@ export class DatabaseService {
     return result.rows.length > 0 ? result.rows[0] : undefined
   }
 
-  static async createOutlet(data: Partial<Outlet>): Promise<Outlet | null> {
+  static async createOutlet(data: Omit<Outlet, "id" | "created_at" | "updated_at">): Promise<Outlet | null> {
     await DatabaseService.ensureInitialized()
 
     try {
@@ -134,20 +134,22 @@ export class DatabaseService {
 
       const result = await sql<Outlet>`
         INSERT INTO outlets (
-          name, category_id, region_id, sales_person, address, phone, email, 
-          store_name, pic_name, pic_contact, created_at, updated_at
+          name, category_id, region_id, sales_person, last_check_date, 
+          last_order_date, address, phone, email, store_name, 
+          pic_name, pic_contact, last_updated_by, last_updated_at
         )
         VALUES (
-          ${data.name}, ${data.category_id || null}, ${data.region_id || null}, 
-          ${data.sales_person || null}, ${data.address || null}, ${data.phone || null}, 
-          ${data.email || null}, ${data.store_name || null}, ${data.pic_name || null}, 
-          ${data.pic_contact || null}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+          ${data.name}, ${data.category_id}, ${data.region_id}, 
+          ${data.sales_person}, ${data.last_check_date}, ${data.last_order_date}, 
+          ${data.address}, ${data.phone}, ${data.email}, ${data.store_name}, 
+          ${data.pic_name}, ${data.pic_contact}, ${data.last_updated_by}, 
+          CURRENT_TIMESTAMP
         )
         RETURNING *
       `
 
-      console.log("Successfully created outlet")
-      return result.rows.length > 0 ? result.rows[0] : null
+      console.log("Successfully created outlet:", result.rows[0])
+      return result.rows[0]
     } catch (error) {
       console.error("Error creating outlet:", error)
       throw error
@@ -246,7 +248,7 @@ export class DatabaseService {
     }
   }
 
-  // Categories
+  // Categories - Enhanced with CRUD operations
   static async getCategories(): Promise<Category[]> {
     await DatabaseService.ensureInitialized()
     const result = await sql<Category>`SELECT * FROM categories ORDER BY name`
@@ -257,12 +259,16 @@ export class DatabaseService {
     await DatabaseService.ensureInitialized()
 
     try {
+      console.log("Creating category:", name)
+
       const result = await sql<Category>`
         INSERT INTO categories (name, created_at, updated_at)
         VALUES (${name}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING *
       `
-      return result.rows.length > 0 ? result.rows[0] : null
+
+      console.log("Successfully created category:", result.rows[0])
+      return result.rows[0]
     } catch (error) {
       console.error("Error creating category:", error)
       throw error
@@ -273,48 +279,41 @@ export class DatabaseService {
     await DatabaseService.ensureInitialized()
 
     try {
-      // Start a transaction
-      await sql`BEGIN`
+      console.log("Updating categories:", categories)
 
-      // Get existing categories
-      const existingCategories = await sql<Category>`SELECT * FROM categories`
-      const existingNames = existingCategories.rows.map((cat) => cat.name)
+      // Start a transaction-like approach
+      // First, get existing categories
+      const existingCategories = await DatabaseService.getCategories()
+      const existingNames = existingCategories.map((cat) => cat.name)
 
       // Find categories to add
       const categoriesToAdd = categories.filter((name) => !existingNames.includes(name))
 
-      // Find categories to remove
-      const categoriesToRemove = existingNames.filter((name) => !categories.includes(name))
+      // Find categories to remove (that are not in the new list)
+      const categoriesToRemove = existingCategories.filter((cat) => !categories.includes(cat.name))
 
       // Add new categories
       for (const categoryName of categoriesToAdd) {
-        await sql`
-          INSERT INTO categories (name, created_at, updated_at)
-          VALUES (${categoryName}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `
+        await DatabaseService.createCategory(categoryName)
       }
 
-      // Remove categories (only if no outlets are using them)
-      for (const categoryName of categoriesToRemove) {
-        const category = existingCategories.rows.find((cat) => cat.name === categoryName)
-        if (category) {
-          // Check if any outlets are using this category
-          const outletsUsingCategory = await sql`
-            SELECT COUNT(*) FROM outlets WHERE category_id = ${category.id}
-          `
+      // Remove categories that are no longer needed
+      // But first check if any outlets are using them
+      for (const category of categoriesToRemove) {
+        const outletsUsingCategory = await sql`
+          SELECT COUNT(*) as count FROM outlets WHERE category_id = ${category.id}
+        `
 
-          if (outletsUsingCategory.rows[0].count === "0") {
-            await sql`DELETE FROM categories WHERE id = ${category.id}`
-          } else {
-            console.warn(`Cannot delete category "${categoryName}" - it's being used by outlets`)
-          }
+        if (outletsUsingCategory.rows[0].count === 0) {
+          await sql`DELETE FROM categories WHERE id = ${category.id}`
+          console.log(`Removed unused category: ${category.name}`)
+        } else {
+          console.log(`Keeping category ${category.name} as it's used by outlets`)
         }
       }
 
-      await sql`COMMIT`
       return true
     } catch (error) {
-      await sql`ROLLBACK`
       console.error("Error updating categories:", error)
       throw error
     }
@@ -326,11 +325,11 @@ export class DatabaseService {
     try {
       // Check if any outlets are using this category
       const outletsUsingCategory = await sql`
-        SELECT COUNT(*) FROM outlets WHERE category_id = ${id}
+        SELECT COUNT(*) as count FROM outlets WHERE category_id = ${id}
       `
 
-      if (outletsUsingCategory.rows[0].count !== "0") {
-        throw new Error("Cannot delete category - it's being used by outlets")
+      if (outletsUsingCategory.rows[0].count > 0) {
+        throw new Error("Cannot delete category that is being used by outlets")
       }
 
       await sql`DELETE FROM categories WHERE id = ${id}`
@@ -341,7 +340,7 @@ export class DatabaseService {
     }
   }
 
-  // Regions
+  // Regions - Enhanced with CRUD operations
   static async getRegions(): Promise<Region[]> {
     await DatabaseService.ensureInitialized()
     const result = await sql<Region>`SELECT * FROM regions ORDER BY name`
@@ -352,12 +351,16 @@ export class DatabaseService {
     await DatabaseService.ensureInitialized()
 
     try {
+      console.log("Creating region:", name)
+
       const result = await sql<Region>`
         INSERT INTO regions (name, created_at, updated_at)
         VALUES (${name}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING *
       `
-      return result.rows.length > 0 ? result.rows[0] : null
+
+      console.log("Successfully created region:", result.rows[0])
+      return result.rows[0]
     } catch (error) {
       console.error("Error creating region:", error)
       throw error
@@ -368,48 +371,39 @@ export class DatabaseService {
     await DatabaseService.ensureInitialized()
 
     try {
-      // Start a transaction
-      await sql`BEGIN`
+      console.log("Updating regions:", regions)
 
       // Get existing regions
-      const existingRegions = await sql<Region>`SELECT * FROM regions`
-      const existingNames = existingRegions.rows.map((reg) => reg.name)
+      const existingRegions = await DatabaseService.getRegions()
+      const existingNames = existingRegions.map((reg) => reg.name)
 
       // Find regions to add
       const regionsToAdd = regions.filter((name) => !existingNames.includes(name))
 
       // Find regions to remove
-      const regionsToRemove = existingNames.filter((name) => !regions.includes(name))
+      const regionsToRemove = existingRegions.filter((reg) => !regions.includes(reg.name))
 
       // Add new regions
       for (const regionName of regionsToAdd) {
-        await sql`
-          INSERT INTO regions (name, created_at, updated_at)
-          VALUES (${regionName}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        `
+        await DatabaseService.createRegion(regionName)
       }
 
-      // Remove regions (only if no outlets are using them)
-      for (const regionName of regionsToRemove) {
-        const region = existingRegions.rows.find((reg) => reg.name === regionName)
-        if (region) {
-          // Check if any outlets are using this region
-          const outletsUsingRegion = await sql`
-            SELECT COUNT(*) FROM outlets WHERE region_id = ${region.id}
-          `
+      // Remove regions that are no longer needed
+      for (const region of regionsToRemove) {
+        const outletsUsingRegion = await sql`
+          SELECT COUNT(*) as count FROM outlets WHERE region_id = ${region.id}
+        `
 
-          if (outletsUsingRegion.rows[0].count === "0") {
-            await sql`DELETE FROM regions WHERE id = ${region.id}`
-          } else {
-            console.warn(`Cannot delete region "${regionName}" - it's being used by outlets`)
-          }
+        if (outletsUsingRegion.rows[0].count === 0) {
+          await sql`DELETE FROM regions WHERE id = ${region.id}`
+          console.log(`Removed unused region: ${region.name}`)
+        } else {
+          console.log(`Keeping region ${region.name} as it's used by outlets`)
         }
       }
 
-      await sql`COMMIT`
       return true
     } catch (error) {
-      await sql`ROLLBACK`
       console.error("Error updating regions:", error)
       throw error
     }
@@ -648,7 +642,7 @@ export class DatabaseService {
         RETURNING *
       `
 
-      return result.rows.length > 0 ? result.rows[0] : null
+      return result.rows[0]
     } catch (error) {
       console.error("Error adding audit entry:", error)
       return null
@@ -699,6 +693,31 @@ export class DatabaseService {
     const result = await sql<User>`SELECT * FROM users WHERE email = ${email}`
     return result.rows.length > 0 ? result.rows[0] : undefined
   }
+
+  // Clear all data for fresh start
+  static async clearAllData(): Promise<boolean> {
+    await DatabaseService.ensureInitialized()
+
+    try {
+      console.log("Clearing all data from database...")
+
+      // Clear in order to respect foreign key constraints
+      await sql`DELETE FROM audit_trail`
+      await sql`DELETE FROM stock_levels`
+      await sql`DELETE FROM product_mappings`
+      await sql`DELETE FROM outlets`
+      await sql`DELETE FROM products`
+      await sql`DELETE FROM categories`
+      await sql`DELETE FROM regions`
+      await sql`DELETE FROM users WHERE email != 'admin@example.com'` // Keep admin user
+
+      console.log("Successfully cleared all data")
+      return true
+    } catch (error) {
+      console.error("Error clearing data:", error)
+      throw error
+    }
+  }
 }
 
 // Export a singleton instance for backward compatibility
@@ -711,7 +730,7 @@ class DatabaseServiceInstance {
     return DatabaseService.getOutletById(id)
   }
 
-  async createOutlet(data: Partial<Outlet>) {
+  async createOutlet(data: Omit<Outlet, "id" | "created_at" | "updated_at">) {
     return DatabaseService.createOutlet(data)
   }
 
@@ -831,6 +850,10 @@ class DatabaseServiceInstance {
 
   async getUserByEmail(email: string) {
     return DatabaseService.getUserByEmail(email)
+  }
+
+  async clearAllData() {
+    return DatabaseService.clearAllData()
   }
 }
 
