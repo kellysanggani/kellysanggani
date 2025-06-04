@@ -1,6 +1,9 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { DatabaseService } from "@/lib/db/database-service"
 import { validateProduct } from "@/lib/validation/schemas"
+
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 export async function GET() {
   try {
@@ -44,7 +47,7 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const rawData = await request.json()
     console.log("API: Creating product with data:", rawData)
@@ -64,11 +67,11 @@ export async function POST(request: Request) {
 
     // For now, return success with validated data
     // In real implementation, you'd call DatabaseService.createProduct(validation.data)
+    await DatabaseService.createProduct(validation.data)
     return NextResponse.json(
       {
         success: true,
-        message: "Product validation passed",
-        data: validation.data,
+        message: "Product created successfully",
       },
       { status: 200 },
     )

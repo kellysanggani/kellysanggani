@@ -1,73 +1,47 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { DatabaseService } from "@/lib/db/database-service"
-import { validateStringArray } from "@/lib/validation/schemas"
+
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 export async function GET() {
   try {
-    console.log("API: Fetching categories...")
     const categories = await DatabaseService.getCategories()
-    console.log(`API: Successfully fetched ${categories.length} categories`)
-
-    // Validate and sanitize category data
-    const validatedCategories = categories.map((category) => ({
-      id: category.id || 0,
-      name: category.name || "Unknown Category",
-      created_at: category.created_at || new Date().toISOString(),
-      updated_at: category.updated_at || new Date().toISOString(),
-    }))
-
-    return NextResponse.json(validatedCategories)
+    return NextResponse.json(categories)
   } catch (error) {
     console.error("Error fetching categories:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to fetch categories",
-        details: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { name } = await request.json()
+
+    if (!name) {
+      return NextResponse.json({ error: "Category name is required" }, { status: 400 })
+    }
+
+    const category = await DatabaseService.createCategory(name)
+    return NextResponse.json(category)
+  } catch (error) {
+    console.error("Error creating category:", error)
+    return NextResponse.json({ error: "Failed to create category" }, { status: 500 })
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const rawData = await request.json()
-    console.log("API: Updating categories with data:", rawData)
+    const { categories } = await request.json()
 
-    // Validate categories array
-    const validation = validateStringArray(rawData.categories, "categories")
-    if (!validation.isValid) {
-      return NextResponse.json(
-        {
-          error: "Validation failed",
-          details: validation.errors,
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 },
-      )
+    if (!Array.isArray(categories)) {
+      return NextResponse.json({ error: "Categories must be an array" }, { status: 400 })
     }
 
-    const validatedCategories = validation.data!
-
-    // Update categories in database
-    await DatabaseService.updateCategories(validatedCategories)
-
-    return NextResponse.json({
-      success: true,
-      message: `Successfully updated ${validatedCategories.length} categories`,
-      data: validatedCategories,
-      timestamp: new Date().toISOString(),
-    })
+    await DatabaseService.updateCategories(categories)
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error updating categories:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to update categories",
-        details: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to update categories" }, { status: 500 })
   }
 }

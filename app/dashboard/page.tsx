@@ -1,27 +1,25 @@
-import type { Metadata } from "next"
-import DashboardHeader from "@/components/dashboard/dashboard-header"
-import DashboardStats from "@/components/dashboard/dashboard-stats"
-import DashboardCharts from "@/components/dashboard/dashboard-charts"
-import DashboardFilters from "@/components/dashboard/dashboard-filters"
-import StockAlerts from "@/components/notifications/stock-alerts"
-import ProductInfoCards from "@/components/dashboard/product-info-cards"
-import QuickNavigation from "@/components/dashboard/quick-navigation"
+import { AppProviders } from "@/components/providers/app-providers"
+import { AppLayout } from "@/components/layout/app-layout"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+import { DashboardStats } from "@/components/dashboard/dashboard-stats"
+import { DashboardCharts } from "@/components/dashboard/dashboard-charts"
+import { QuickNavigation } from "@/components/dashboard/quick-navigation"
 
-export const metadata: Metadata = {
-  title: "Dashboard | Cinema Stock Manager",
-  description: "Stock management dashboard for cinema outlets",
-}
+export const dynamic = "force-dynamic"
 
 export default function DashboardPage() {
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8">
-      <DashboardHeader />
-      <QuickNavigation />
-      <StockAlerts />
-      <ProductInfoCards />
-      <DashboardFilters />
-      <DashboardStats />
-      <DashboardCharts />
-    </div>
+    <AppProviders>
+      <AppLayout>
+        <div className="space-y-6">
+          <DashboardHeader />
+          <DashboardStats />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <DashboardCharts />
+            <QuickNavigation />
+          </div>
+        </div>
+      </AppLayout>
+    </AppProviders>
   )
 }

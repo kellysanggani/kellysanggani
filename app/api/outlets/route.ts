@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { DatabaseService } from "@/lib/db/database-service"
-import { validateOutlet } from "@/lib/validation/schemas"
+
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
 
 export async function GET() {
   try {
@@ -8,60 +10,20 @@ export async function GET() {
     const outlets = await DatabaseService.getOutlets()
     console.log(`API: Successfully fetched ${outlets.length} outlets`)
 
-    // Validate each outlet data before returning
-    const validatedOutlets = outlets.map((outlet) => {
-      const validation = validateOutlet(outlet)
-      if (!validation.isValid) {
-        console.warn(`Invalid outlet data for ID ${outlet.id}:`, validation.errors)
-        // Return sanitized version or skip invalid data
-        return {
-          id: outlet.id,
-          name: outlet.name || "Unknown Outlet",
-          address: outlet.address || null,
-          pic_name: outlet.pic_name || null,
-          pic_contact: outlet.pic_contact || null,
-          email: outlet.email || null,
-          sales_person: outlet.sales_person || null,
-          last_updated_at: outlet.last_updated_at || null,
-        }
-      }
-      return outlet
-    })
-
-    return NextResponse.json(validatedOutlets)
+    return NextResponse.json(outlets)
   } catch (error) {
     console.error("Error fetching outlets:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to fetch outlets",
-        details: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to fetch outlets" }, { status: 500 })
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const rawData = await request.json()
-    console.log("API: Creating outlet with data:", rawData)
-
-    // Validate input data
-    const validation = validateOutlet(rawData)
-    if (!validation.isValid) {
-      return NextResponse.json(
-        {
-          error: "Validation failed",
-          details: validation.errors,
-          timestamp: new Date().toISOString(),
-        },
-        { status: 400 },
-      )
-    }
+    const data = await request.json()
+    console.log("API: Creating outlet with data:", data)
 
     // Create outlet in database
-    const newOutlet = await DatabaseService.createOutlet(validation.data)
+    const newOutlet = await DatabaseService.createOutlet(data)
 
     if (!newOutlet) {
       throw new Error("Failed to create outlet")
@@ -77,13 +39,6 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     console.error("Error creating outlet:", error)
-    return NextResponse.json(
-      {
-        error: "Failed to create outlet",
-        details: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to create outlet" }, { status: 500 })
   }
 }

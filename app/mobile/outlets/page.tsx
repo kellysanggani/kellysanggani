@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { AppProviders } from "@/components/providers/app-providers"
 import MobileLayout from "@/components/mobile/mobile-layout"
 import MobileOutletCard from "@/components/mobile/mobile-outlet-card"
 
@@ -6,6 +7,8 @@ export const metadata: Metadata = {
   title: "Mobile Outlets | Cinema Stock Manager",
   description: "Mobile-optimized outlet management",
 }
+
+export const dynamic = "force-dynamic"
 
 export default function MobileOutletsPage() {
   const outlets = [
@@ -57,12 +60,15 @@ export default function MobileOutletsPage() {
   ]
 
   return (
-    <MobileLayout title="Outlets" showSearch alertCount={8}>
-      <div className="space-y-4">
-        {outlets.map((outlet) => (
-          <MobileOutletCard key={outlet.id} outlet={outlet} />
-        ))}
-      </div>
-    </MobileLayout>
+    <AppProviders>
+      <MobileLayout title="Outlets" showSearch alertCount={8}>
+        <div className="space-y-4">
+          <h1 className="text-2xl font-bold">Outlets</h1>
+          {outlets.map((outlet) => (
+            <MobileOutletCard key={outlet.id} outlet={outlet} />
+          ))}
+        </div>
+      </MobileLayout>
+    </AppProviders>
   )
 }

@@ -1,12 +1,15 @@
 import type { Metadata } from "next"
-import MobileLayout from "@/components/mobile/mobile-layout"
-import MobileDashboard from "@/components/mobile/mobile-dashboard"
+import { AppProviders } from "@/components/providers/app-providers"
+import { MobileLayout } from "@/components/mobile/mobile-layout"
+import { MobileDashboard } from "@/components/mobile/mobile-dashboard"
 import { Store, Package, Calendar, MapPin } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Mobile Dashboard | Cinema Stock Manager",
   description: "Mobile-optimized dashboard for cinema stock management",
 }
+
+export const dynamic = "force-dynamic"
 
 export default function MobileDashboardPage() {
   const stats = {
@@ -72,15 +75,17 @@ export default function MobileDashboardPage() {
   ]
 
   return (
-    <MobileLayout title="Dashboard" alertCount={8}>
-      <MobileDashboard
-        stats={stats}
-        recentAlerts={recentAlerts}
-        quickActions={quickActions.map((action) => ({
-          ...action,
-          icon: action.icon.name, // Pass the icon name instead of the function
-        }))}
-      />
-    </MobileLayout>
+    <AppProviders>
+      <MobileLayout title="Dashboard" alertCount={8}>
+        <MobileDashboard
+          stats={stats}
+          recentAlerts={recentAlerts}
+          quickActions={quickActions.map((action) => ({
+            ...action,
+            icon: action.icon.name, // Pass the icon name instead of the function
+          }))}
+        />
+      </MobileLayout>
+    </AppProviders>
   )
 }

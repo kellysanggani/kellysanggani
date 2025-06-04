@@ -1,21 +1,23 @@
-import type { Metadata } from "next"
-import ProductSettingsHeader from "@/components/products/product-settings-header"
-import ProductThresholdSettings from "@/components/products/product-threshold-settings"
-import ProductInfoManagement from "@/components/products/product-info-management"
-import QuickNavigation from "@/components/dashboard/quick-navigation"
+import { AppProviders } from "@/components/providers/app-providers"
+import { AppLayout } from "@/components/layout/app-layout"
+import { ProductSettingsHeader } from "@/components/products/product-settings-header"
+import { ProductInfoManagement } from "@/components/products/product-info-management"
+import { ProductThresholdSettings } from "@/components/products/product-threshold-settings"
 
-export const metadata: Metadata = {
-  title: "Product Settings | Cinema Stock Manager",
-  description: "Manage product stock thresholds and settings",
-}
+export const dynamic = "force-dynamic"
 
-export default function ProductSettingsPage() {
+export default function ProductsPage() {
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8">
-      <ProductSettingsHeader />
-      <QuickNavigation />
-      <ProductInfoManagement />
-      <ProductThresholdSettings />
-    </div>
+    <AppProviders>
+      <AppLayout>
+        <div className="space-y-6">
+          <ProductSettingsHeader />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ProductInfoManagement />
+            <ProductThresholdSettings />
+          </div>
+        </div>
+      </AppLayout>
+    </AppProviders>
   )
 }

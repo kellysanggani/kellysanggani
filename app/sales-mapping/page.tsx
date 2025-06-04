@@ -1,19 +1,19 @@
-import type { Metadata } from "next"
-import SalesMappingHeader from "@/components/sales-mapping/sales-mapping-header"
-import SalesMappingTable from "@/components/sales-mapping/sales-mapping-table"
-import QuickNavigation from "@/components/dashboard/quick-navigation"
+import { AppProviders } from "@/components/providers/app-providers"
+import { AppLayout } from "@/components/layout/app-layout"
+import { SalesMappingHeader } from "@/components/sales-mapping/sales-mapping-header"
+import { SalesMappingTable } from "@/components/sales-mapping/sales-mapping-table"
 
-export const metadata: Metadata = {
-  title: "Sales Mapping | Cinema Stock Manager",
-  description: "Assign sales persons to outlets",
-}
+export const dynamic = "force-dynamic"
 
 export default function SalesMappingPage() {
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <QuickNavigation />
-      <SalesMappingHeader />
-      <SalesMappingTable />
-    </div>
+    <AppProviders>
+      <AppLayout>
+        <div className="space-y-6">
+          <SalesMappingHeader />
+          <SalesMappingTable />
+        </div>
+      </AppLayout>
+    </AppProviders>
   )
 }

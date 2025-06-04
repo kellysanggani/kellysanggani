@@ -1,23 +1,23 @@
-import type { Metadata } from "next"
-import CategoryRegionHeader from "@/components/categories/category-region-header"
-import CategoryManagement from "@/components/categories/category-management"
-import RegionManagement from "@/components/categories/region-management"
-import QuickNavigation from "@/components/dashboard/quick-navigation"
+import { AppProviders } from "@/components/providers/app-providers"
+import { AppLayout } from "@/components/layout/app-layout"
+import { CategoryRegionHeader } from "@/components/categories/category-region-header"
+import { CategoryManagement } from "@/components/categories/category-management"
+import { RegionManagement } from "@/components/categories/region-management"
 
-export const metadata: Metadata = {
-  title: "Categories & Regions | Cinema Stock Manager",
-  description: "Manage outlet categories and regions",
-}
+export const dynamic = "force-dynamic"
 
 export default function CategoriesPage() {
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8">
-      <CategoryRegionHeader />
-      <QuickNavigation />
-      <div className="grid gap-6 md:grid-cols-2">
-        <CategoryManagement />
-        <RegionManagement />
-      </div>
-    </div>
+    <AppProviders>
+      <AppLayout>
+        <div className="space-y-6">
+          <CategoryRegionHeader />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CategoryManagement />
+            <RegionManagement />
+          </div>
+        </div>
+      </AppLayout>
+    </AppProviders>
   )
 }

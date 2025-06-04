@@ -1,25 +1,23 @@
-import type { Metadata } from "next"
-import SettingsHeader from "@/components/settings/settings-header"
-import UserManagement from "@/components/settings/user-management"
-import UserRolesManagement from "@/components/settings/user-roles-management"
-import DatabaseManagement from "@/components/settings/database-management"
-import QuickNavigation from "@/components/dashboard/quick-navigation"
+import { AppProviders } from "@/components/providers/app-providers"
+import { AppLayout } from "@/components/layout/app-layout"
+import { SettingsHeader } from "@/components/settings/settings-header"
+import { UserManagement } from "@/components/settings/user-management"
+import { DatabaseManagement } from "@/components/settings/database-management"
 
-export const metadata: Metadata = {
-  title: "User Settings | Cinema Stock Manager",
-  description: "Manage users and their roles",
-}
+export const dynamic = "force-dynamic"
 
 export default function SettingsPage() {
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8">
-      <SettingsHeader />
-      <QuickNavigation />
-      <div className="space-y-6">
-        <UserRolesManagement />
-        <UserManagement />
-        <DatabaseManagement />
-      </div>
-    </div>
+    <AppProviders>
+      <AppLayout>
+        <div className="space-y-6">
+          <SettingsHeader />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <UserManagement />
+            <DatabaseManagement />
+          </div>
+        </div>
+      </AppLayout>
+    </AppProviders>
   )
 }

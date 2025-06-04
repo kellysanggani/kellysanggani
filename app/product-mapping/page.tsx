@@ -1,19 +1,19 @@
-import type { Metadata } from "next"
-import ProductMappingHeader from "@/components/product-mapping/product-mapping-header"
-import ProductOutletMatrix from "@/components/product-mapping/product-outlet-matrix"
-import QuickNavigation from "@/components/dashboard/quick-navigation"
+import { AppProviders } from "@/components/providers/app-providers"
+import { AppLayout } from "@/components/layout/app-layout"
+import { ProductMappingHeader } from "@/components/product-mapping/product-mapping-header"
+import { ProductOutletMatrix } from "@/components/product-mapping/product-outlet-matrix"
 
-export const metadata: Metadata = {
-  title: "Product Mapping | Cinema Stock Manager",
-  description: "Manage which products are supplied to which outlets",
-}
+export const dynamic = "force-dynamic"
 
 export default function ProductMappingPage() {
   return (
-    <div className="flex flex-col gap-6 p-6 md:p-8">
-      <ProductMappingHeader />
-      <QuickNavigation />
-      <ProductOutletMatrix />
-    </div>
+    <AppProviders>
+      <AppLayout>
+        <div className="space-y-6">
+          <ProductMappingHeader />
+          <ProductOutletMatrix />
+        </div>
+      </AppLayout>
+    </AppProviders>
   )
 }
