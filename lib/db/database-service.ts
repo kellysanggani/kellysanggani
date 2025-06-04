@@ -929,6 +929,10 @@ class DatabaseServiceInstance {
   async getSalesUsersWithOutletCounts() {
     return DatabaseService.getSalesUsersWithOutletCounts()
   }
+
+  async ensureInitialized() {
+    return DatabaseService.ensureInitialized()
+  }
 }
 
 // Export the singleton instance

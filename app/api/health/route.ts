@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { dbService } from "@/lib/db/database-service"
 import { sql } from "@vercel/postgres"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     // Test database connection
